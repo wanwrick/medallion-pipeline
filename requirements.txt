@@ -1,0 +1,5 @@
+databricks-sdk>=0.20.0
+databricks-cli>=0.18.0
+pyspark>=3.5.0
+delta-spark>=3.0.0
+pyyaml>=6.0

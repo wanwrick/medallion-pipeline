@@ -1,0 +1,42 @@
+# Multi-Task Job DAG Configuration
+# Orchestrates: Pipeline Update → Quality Checks → Alerting
+
+name: "medallion-pipeline-orchestration"
+
+tasks:
+  - task_key: "run_pipeline"
+    description: "Trigger DLT pipeline update (Bronze → Silver → Gold)"
+    pipeline_task:
+      pipeline_id: "${var.pipeline_id}"
+      full_refresh: false
+    timeout_seconds: 3600
+
+  - task_key: "quality_checks"
+    description: "Run data quality validation suite"
+    depends_on:
+      - task_key: "run_pipeline"
+        outcome: "ALL_SUCCESS"
+    notebook_task:
+      notebook_path: "/Repos/medallion-pipeline/notebooks/04_data_quality_checks"
+      source: "GIT"
+    new_cluster:
+      spark_version: "14.3.x-scala2.12"
+      num_workers: 1
+      node_type_id: "Standard_DS3_v2"
+    timeout_seconds: 1800
+
+schedule:
+  quartz_cron_expression: "0 0 6 * * ?"  # Daily at 6 AM UTC
+  timezone_id: "America/Toronto"
+  pause_status: "UNPAUSED"
+
+tags:
+  project: "medallion-demo"
+  owner: "paroz.mehta"
+  environment: "dev"
+
+max_concurrent_runs: 1
+
+email_notifications:
+  on_failure:
+    - "parozmehta@gmail.com"

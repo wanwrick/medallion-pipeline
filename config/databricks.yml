@@ -1,0 +1,74 @@
+# Databricks Asset Bundle (DAB) configuration
+# Multi-environment deployment: dev → staging → prod
+# Deploy with: databricks bundle deploy --target dev
+
+bundle:
+  name: medallion-pipeline
+
+workspace:
+  root_path: /Users/${workspace.current_user.userName}/medallion-pipeline
+
+resources:
+  pipelines:
+    medallion_pipeline:
+      name: "medallion-ecommerce-${bundle.target}"
+      catalog: "medallion_demo"
+      development: true
+      continuous: false
+      channel: "PREVIEW"
+      clusters:
+        - label: "default"
+          autoscale:
+            min_workers: 1
+            max_workers: 4
+            mode: "ENHANCED"
+      libraries:
+        - notebook:
+            path: ./notebooks/01_bronze_ingestion.py
+        - notebook:
+            path: ./notebooks/02_silver_transformation.py
+        - notebook:
+            path: ./notebooks/03_gold_aggregation.py
+
+  jobs:
+    quality_check_job:
+      name: "medallion-quality-${bundle.target}"
+      tasks:
+        - task_key: "run_quality_checks"
+          notebook_task:
+            notebook_path: ./notebooks/04_data_quality_checks.py
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            num_workers: 1
+      schedule:
+        quartz_cron_expression: "0 0 7 * * ?"
+        timezone_id: "America/Toronto"
+
+targets:
+  dev:
+    default: true
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+
+  staging:
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+    resources:
+      pipelines:
+        medallion_pipeline:
+          development: false
+
+  prod:
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+    resources:
+      pipelines:
+        medallion_pipeline:
+          development: false
+          continuous: true
+          clusters:
+            - label: "default"
+              autoscale:
+                min_workers: 2
+                max_workers: 8
+                mode: "ENHANCED"

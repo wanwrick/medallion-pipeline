@@ -1,0 +1,30 @@
+# DLT Pipeline Configuration for Medallion Architecture Demo
+# Deploy with: databricks pipelines create --json config/pipeline_config.yaml
+
+name: "medallion-ecommerce-pipeline"
+catalog: "medallion_demo"
+target: "bronze"  # Default target schema
+
+clusters:
+  - label: "default"
+    autoscale:
+      min_workers: 1
+      max_workers: 4
+      mode: "ENHANCED"
+
+libraries:
+  - notebook:
+      path: "/Repos/medallion-pipeline/notebooks/01_bronze_ingestion"
+  - notebook:
+      path: "/Repos/medallion-pipeline/notebooks/02_silver_transformation"
+  - notebook:
+      path: "/Repos/medallion-pipeline/notebooks/03_gold_aggregation"
+
+development: true
+continuous: false
+
+channel: "PREVIEW"
+
+configuration:
+  "pipelines.autoOptimize.enabled": "true"
+  "pipelines.autoOptimize.optimizeWrite": "true"
