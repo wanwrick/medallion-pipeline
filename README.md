@@ -21,31 +21,28 @@
 ## 📐 Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Databricks Workspace                         │
-│                                                                     │
-│  ┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐  │
-│  │  Sources   │───▶│  BRONZE   │───▶│  SILVER   │───▶│   GOLD    │  │
-│  │           │    │  (Raw)    │    │(Validated)│    │(Business) │  │
-│  │ • CSV     │    │           │    │           │    │           │  │
-│  │ • JSON    │    │ Auto      │    │ CDC +     │    │ Star      │  │
-│  │ • Kafka   │    │ Loader    │    │ SCD Type2 │    │ Schema    │  │
-│  │ • API     │    │ Streaming │    │ Quality   │    │ Aggregates│  │
-│  └───────────┘    └───────────┘    └───────────┘    └───────────┘  │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │                    Unity Catalog                             │    │
-│  │  Catalog: medallion_demo                                    │    │
-│  │  Schemas: bronze | silver | gold                            │    │
-│  │  Access: RBAC + Column Masking + Row Filters               │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │                    Job Orchestration                         │    │
-│  │  Task 1: Ingest → Task 2: Transform → Task 3: Quality      │    │
-│  │  Trigger: Scheduled (cron) + File Arrival                   │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+                         Databricks Workspace
+  +-----------+     +-----------+     +-----------+     +-----------+
+  |  Sources  |---->|  BRONZE   |---->|  SILVER   |---->|   GOLD    |
+  |           |     |  (Raw)    |     |(Validated)|     |(Business) |
+  | - CSV     |     |           |     |           |     |           |
+  | - JSON    |     | Auto      |     | CDC +     |     | Star      |
+  | - Kafka   |     | Loader    |     | SCD Type2 |     | Schema    |
+  | - API     |     | Streaming |     | Quality   |     | Aggregates|
+  +-----------+     +-----------+     +-----------+     +-----------+
+
+  +---------------------------------------------------------------+
+  |                        Unity Catalog                          |
+  |   Catalog: medallion_demo                                     |
+  |   Schemas: bronze | silver | gold                             |
+  |   Access:  RBAC + Column Masking + Row Filters                |
+  +---------------------------------------------------------------+
+
+  +---------------------------------------------------------------+
+  |                      Job Orchestration                        |
+  |   Task 1: Ingest --> Task 2: Transform --> Task 3: Quality    |
+  |   Trigger: Scheduled (cron) + File Arrival                    |
+  +---------------------------------------------------------------+
 ```
 
 ---
@@ -87,7 +84,7 @@ medallion-pipeline/
 
 ```bash
 # 1. Clone this repo
-git clone https://github.com/parozmehta/medallion-pipeline.git
+git clone https://github.com/wanwrick/medallion-pipeline.git
 cd medallion-pipeline
 
 # 2. Install dependencies
@@ -179,8 +176,8 @@ CREATE FUNCTION mask_email(email STRING)
 
 ## 👤 Author
 
-**Paroz Mehta** — GM, Data Warehousing & Engineering | Cornell/Smith EMBA '26
+**Paroz Mehta**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/parozmehta)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/paroz-mehta)
 
 Built with [Databricks AI Dev Kit](https://github.com/databricks-solutions/ai-dev-kit)
