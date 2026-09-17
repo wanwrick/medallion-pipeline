@@ -2,6 +2,8 @@
 
 > A production-grade data pipeline implementing the **Bronze → Silver → Gold** medallion architecture on Databricks using Spark Declarative Pipelines (DLT), Unity Catalog governance, and multi-task job orchestration.
 
+[![tests](https://github.com/wanwrick/medallion-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/wanwrick/medallion-pipeline/actions/workflows/tests.yml)
+
 ![Architecture](docs/architecture.png)
 
 ---
@@ -62,9 +64,11 @@ medallion-pipeline/
 │   ├── job_config.yaml              # Multi-task job DAG
 │   └── databricks.yml               # Asset Bundle (DAB) config
 ├── tests/
-│   ├── test_bronze.py               # Bronze layer unit tests
-│   ├── test_silver.py               # Silver layer unit tests
-│   └── test_gold.py                 # Gold layer unit tests
+│   ├── conftest.py                  # Notebook AST parser + Spark fixture
+│   ├── test_bronze.py               # Raw-layer contract (lineage, no filtering)
+│   ├── test_silver.py               # Expectation coverage + rules executed
+│   └── test_gold.py                 # Star schema shape + layer boundaries
+├── .github/workflows/tests.yml      # CI: pytest on every push
 ├── docs/
 │   └── architecture.png
 ├── requirements.txt
@@ -101,6 +105,33 @@ databricks workspace import notebooks/05_setup_sample_data.py /Users/you/medalli
 databricks pipelines create --json config/pipeline_config.yaml
 databricks pipelines start-update --pipeline-id <your-pipeline-id>
 ```
+
+---
+
+## 🧪 Tests
+
+```bash
+pip install pytest pyspark pyyaml
+pytest tests -q        # 34 tests, ~20s
+```
+
+DLT notebooks cannot be imported outside a Databricks runtime, so the suite
+reads the notebook source and inspects it with `ast`. That keeps it runnable on
+any laptop while still catching the failures that actually occur:
+
+| Test group | What it prevents |
+|------------|------------------|
+| Layer boundaries | A gold aggregate sourced from bronze, skipping every silver expectation |
+| Lineage columns | A bad batch that cannot be traced back to its source file |
+| Raw-layer purity | A filter in bronze silently dropping rows nothing downstream can recover |
+| Expectation coverage | A silver table shipped with no quality rules |
+| Key enforcement | A null join key that only warns instead of dropping |
+| Executed rules | A rule that parses but never rejects anything, reporting a false pass |
+
+The last group is the useful one. It extracts each `@dlt.expect` predicate from
+the source and runs it against sample rows, so a rule has to prove it rejects
+what it claims to reject. Tests needing Spark skip cleanly when no JVM is
+present; CI installs one and runs the full set.
 
 ---
 
