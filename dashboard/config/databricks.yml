@@ -1,0 +1,58 @@
+# Databricks Asset Bundle (DAB) configuration
+# Deploys the quality dashboard, its metric views, and its alerts.
+# Deploy with: databricks bundle deploy --target dev
+
+bundle:
+  name: data-quality-dashboard
+
+workspace:
+  root_path: /Users/${workspace.current_user.userName}/data-quality-dashboard
+
+variables:
+  warehouse_id:
+    description: "SQL Warehouse that backs the dashboard queries"
+  catalog:
+    description: "Unity Catalog holding data_quality_metrics"
+    default: "medallion_demo"
+
+resources:
+  dashboards:
+    quality_dashboard:
+      display_name: "Data Quality — ${bundle.target}"
+      file_path: ./config/dashboard_config.json
+      warehouse_id: ${var.warehouse_id}
+
+  jobs:
+    publish_metric_views:
+      name: "quality-metric-views-${bundle.target}"
+      tasks:
+        - task_key: "create_metric_views"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ./queries/08_metric_views.sql
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: "America/Toronto"
+
+targets:
+  dev:
+    default: true
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+
+  staging:
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+
+  prod:
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+    resources:
+      jobs:
+        publish_metric_views:
+          # Refresh hourly in prod so the governed views never lag the source
+          # tables the business is reading beside them.
+          schedule:
+            quartz_cron_expression: "0 0 * * * ?"
+            timezone_id: "America/Toronto"

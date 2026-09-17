@@ -1,0 +1,130 @@
+{
+  "display_name": "Data Quality Observatory",
+  "warehouse_id": "${WAREHOUSE_ID}",
+  "pages": [
+    {
+      "name": "Overview",
+      "display_name": "Quality Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_freshness",
+            "title": "Data Freshness",
+            "spec": {
+              "version": 3,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "metric_value", "displayName": "Minutes" },
+                "label": { "show": true, "value": "Minutes Since Last Update" }
+              }
+            },
+            "queries": [{ "name": "freshness_kpi", "query": { "datasetName": "queries/01_quality_kpis" } }]
+          },
+          "position": { "x": 0, "y": 0, "width": 3, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "kpi_completeness",
+            "title": "Completeness",
+            "spec": {
+              "version": 3,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "metric_value", "displayName": "%" }
+              }
+            }
+          },
+          "position": { "x": 3, "y": 0, "width": 3, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "kpi_accuracy",
+            "title": "Accuracy Score",
+            "spec": { "version": 3, "widgetType": "counter" }
+          },
+          "position": { "x": 6, "y": 0, "width": 3, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "kpi_sla",
+            "title": "Pipeline SLA",
+            "spec": { "version": 3, "widgetType": "counter" }
+          },
+          "position": { "x": 9, "y": 0, "width": 3, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "quality_trends",
+            "title": "Quality Score Trends (30 Days)",
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": { "fieldName": "check_date", "scale": { "type": "temporal" } },
+                "y": { "fieldName": "avg_score", "displayName": "Quality Score %" },
+                "color": { "fieldName": "check_type", "displayName": "Dimension" }
+              }
+            },
+            "queries": [{ "name": "trends", "query": { "datasetName": "queries/03_completeness_trends" } }]
+          },
+          "position": { "x": 0, "y": 2, "width": 6, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "freshness_table",
+            "title": "Table Freshness Monitor",
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "table_name", "displayName": "Table" },
+                  { "fieldName": "minutes_stale", "displayName": "Minutes Stale" },
+                  { "fieldName": "freshness_status", "displayName": "Status" },
+                  { "fieldName": "sla_consumed_pct", "displayName": "SLA Used %" }
+                ]
+              }
+            },
+            "queries": [{ "name": "freshness", "query": { "datasetName": "queries/02_freshness_monitor" } }]
+          },
+          "position": { "x": 6, "y": 2, "width": 6, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "volume_anomalies",
+            "title": "Volume Anomaly Detection",
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "table_name", "displayName": "Table" },
+                  { "fieldName": "row_count", "displayName": "Row Count" },
+                  { "fieldName": "z_score", "displayName": "Z-Score" },
+                  { "fieldName": "pct_change", "displayName": "% Change" },
+                  { "fieldName": "status", "displayName": "Status" }
+                ]
+              }
+            },
+            "queries": [{ "name": "anomalies", "query": { "datasetName": "queries/07_volume_anomalies" } }]
+          },
+          "position": { "x": 0, "y": 6, "width": 12, "height": 4 }
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "name": "date_filter",
+      "display_name": "Date Range",
+      "type": "date_range",
+      "default": "last_7_days"
+    },
+    {
+      "name": "schema_filter",
+      "display_name": "Schema",
+      "type": "select",
+      "options": ["bronze", "silver", "gold"]
+    }
+  ]
+}

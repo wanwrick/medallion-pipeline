@@ -1,0 +1,4 @@
+# Validation tooling for the queries and configs in this repo.
+# The dashboard itself runs on Databricks and needs nothing from here.
+pytest>=8.0
+pyyaml>=6.0
