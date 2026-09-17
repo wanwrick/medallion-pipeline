@@ -1,6 +1,6 @@
 # 🏗️ Medallion Architecture Pipeline — Databricks Lakehouse
 
-> A production-grade data pipeline implementing the **Bronze → Silver → Gold** medallion architecture on Databricks using Spark Declarative Pipelines (DLT), Unity Catalog governance, and multi-task job orchestration.
+> A production-grade data pipeline implementing the **Bronze → Silver → Gold** medallion architecture on Databricks using Spark Declarative Pipelines (DLT), Unity Catalog governance, and multi-task job orchestration, with the observability dashboard that watches it.
 
 [![tests](https://github.com/wanwrick/medallion-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/wanwrick/medallion-pipeline/actions/workflows/tests.yml)
 
@@ -63,14 +63,22 @@ medallion-pipeline/
 │   ├── pipeline_config.yaml         # DLT pipeline configuration
 │   ├── job_config.yaml              # Multi-task job DAG
 │   └── databricks.yml               # Asset Bundle (DAB) config
+├── dashboard/                       # AI/BI observability layer
+│   ├── queries/                     # 8 SQL widgets, 01 to 08
+│   └── config/
+│       ├── dashboard_config.json    # AI/BI Dashboard layout
+│       ├── alerts.yaml              # Thresholds, owners, mute windows
+│       └── databricks.yml           # Asset Bundle for the dashboard
 ├── tests/
 │   ├── conftest.py                  # Notebook AST parser + Spark fixture
 │   ├── test_bronze.py               # Raw-layer contract (lineage, no filtering)
 │   ├── test_silver.py               # Expectation coverage + rules executed
-│   └── test_gold.py                 # Star schema shape + layer boundaries
+│   ├── test_gold.py                 # Star schema shape + layer boundaries
+│   └── test_dashboard.py            # SQL, YAML, and alert wiring validation
 ├── .github/workflows/tests.yml      # CI: pytest on every push
 ├── docs/
-│   └── architecture.png
+│   ├── architecture.png
+│   └── dashboard.png
 ├── requirements.txt
 └── README.md
 ```
@@ -111,8 +119,8 @@ databricks pipelines start-update --pipeline-id <your-pipeline-id>
 ## 🧪 Tests
 
 ```bash
-pip install pytest pyspark pyyaml
-pytest tests -q        # 34 tests, ~20s
+pip install -r requirements.txt
+pytest tests -q        # 65 tests, ~20s
 ```
 
 DLT notebooks cannot be imported outside a Databricks runtime, so the suite
@@ -127,8 +135,10 @@ any laptop while still catching the failures that actually occur:
 | Expectation coverage | A silver table shipped with no quality rules |
 | Key enforcement | A null join key that only warns instead of dropping |
 | Executed rules | A rule that parses but never rejects anything, reporting a false pass |
+| Dashboard wiring | An alert pointing at a query that was never written |
+| Alert ownership | A critical alert routed to a chat channel nobody owns |
 
-The last group is the useful one. It extracts each `@dlt.expect` predicate from
+The executed-rules group is the useful one. It extracts each `@dlt.expect` predicate from
 the source and runs it against sample rows, so a rule has to prove it rejects
 what it claims to reject. Tests needing Spark skip cleanly when no JVM is
 present; CI installs one and runs the full set.
@@ -188,6 +198,50 @@ CREATE FUNCTION mask_email(email STRING)
 
 ---
 
+## 📊 The observability dashboard
+
+![Dashboard](docs/dashboard.png)
+
+The pipeline writes quality results to `gold.data_quality_metrics`. The
+dashboard in `dashboard/` reads them. They live in one repo because they are one
+system: a change to a quality check in `notebooks/04_data_quality_checks.py`
+changes what the dashboard can display, and a single test run catches the drift.
+
+| # | Query | What it answers |
+|---|-------|-----------------|
+| 01 | `quality_kpis` | The four header numbers, each with its own threshold |
+| 02 | `freshness_monitor` | Which tables are stale, and how much of the SLA is spent |
+| 03 | `completeness_trends` | Is quality drifting, or was yesterday a one-off |
+| 04 | `accuracy_checks` | Do source and landed row counts still reconcile |
+| 05 | `pipeline_sla` | Did we hold the promise, and when we missed, by how much |
+| 06 | `failed_checks` | Which failure to work first, and which one nobody owns |
+| 07 | `volume_anomalies` | Did a row count move more than three standard deviations |
+| 08 | `metric_views` | The governed definitions everything above reads from |
+
+Three are worth calling out.
+
+**04 reconciles rather than counts.** Completeness tells you a column is
+populated. It does not tell you a batch went missing. Accuracy compares source
+to landed and treats anything past a 0.1% variance as a real loss.
+
+**05 refuses to report a mean.** One four-hour outage and forty one-minute slips
+average the same and mean nothing alike, so it reports the 95th percentile, the
+worst miss, and how much of the monthly error budget is already spent.
+
+**06 sorts by ownership, not severity.** A first failure is noise until it
+repeats. A failure still open after three days has stopped being a quality
+problem and become an ownership problem, so it sorts to the top and escalates to
+the lead rather than paging the same on-call again.
+
+Alerts carry an owner and a channel, and critical ones may not route to a chat
+channel alone. An alert nobody owns gets muted within a month and stops working.
+
+```bash
+cd dashboard && databricks bundle deploy --target dev
+```
+
+---
+
 ## 📈 Metrics & Monitoring
 
 | Metric | Target | Measurement |
@@ -197,11 +251,15 @@ CREATE FUNCTION mask_email(email STRING)
 | Processing latency | < 5 min | Bronze → Gold end-to-end |
 | Row count accuracy | ±0.1% | Source vs. Gold reconciliation |
 
+Sizing capacity against a freshness target like the first row is its own
+problem, and a harder one than it looks. That analysis lives in
+[pipeline-sla-capacity](https://github.com/wanwrick/pipeline-sla-capacity).
+
 ---
 
 ## 🏷️ Technologies
 
-`Databricks` `Delta Lake` `Spark Declarative Pipelines (DLT)` `Unity Catalog` `Auto Loader` `Python` `SQL` `Asset Bundles` `CDC` `SCD Type 2`
+`Databricks` `Delta Lake` `Spark Declarative Pipelines (DLT)` `Unity Catalog` `Auto Loader` `AI/BI Dashboards` `Metric Views` `System Tables` `Python` `SQL` `Asset Bundles` `CDC` `SCD Type 2`
 
 ---
 

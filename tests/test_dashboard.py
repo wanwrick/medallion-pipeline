@@ -1,8 +1,13 @@
-"""Repo contract tests.
+"""Dashboard contract tests.
 
-A dashboard repo fails quietly: the SQL is never compiled, the YAML is never
-parsed, and a typo surfaces the first time someone deploys it. These tests do
-the parsing up front, and check that the pieces actually refer to each other.
+A dashboard fails quietly: nothing compiles the SQL or parses the YAML until
+someone deploys it, and a typo surfaces in front of the person who asked for
+the report. These tests do the parsing up front and check the pieces refer to
+each other, so an alert cannot point at a query that was never written or
+route to a channel that was never declared.
+
+The dashboard reads the quality metrics the pipeline in notebooks/ writes, so
+the two live in one repo and one test run.
 """
 
 from __future__ import annotations
@@ -14,7 +19,8 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-QUERIES = sorted((ROOT / "queries").glob("*.sql"))
+DASHBOARD = ROOT / "dashboard"
+QUERIES = sorted((DASHBOARD / "queries").glob("*.sql"))
 EXPECTED_QUERY_COUNT = 8
 
 
@@ -49,17 +55,17 @@ def test_query_is_fully_qualified(path):
 
 
 def test_configs_parse():
-    yaml.safe_load((ROOT / "config" / "alerts.yaml").read_text(encoding="utf-8"))
-    yaml.safe_load((ROOT / "config" / "databricks.yml").read_text(encoding="utf-8"))
-    json.loads((ROOT / "config" / "dashboard_config.json").read_text(encoding="utf-8"))
+    yaml.safe_load((DASHBOARD / "config" / "alerts.yaml").read_text(encoding="utf-8"))
+    yaml.safe_load((DASHBOARD / "config" / "databricks.yml").read_text(encoding="utf-8"))
+    json.loads((DASHBOARD / "config" / "dashboard_config.json").read_text(encoding="utf-8"))
 
 
 def _alerts():
-    return yaml.safe_load((ROOT / "config" / "alerts.yaml").read_text(encoding="utf-8"))
+    return yaml.safe_load((DASHBOARD / "config" / "alerts.yaml").read_text(encoding="utf-8"))
 
 
 def test_every_alert_points_at_a_real_query():
-    dangling = [a["name"] for a in _alerts()["alerts"] if not (ROOT / a["query"]).exists()]
+    dangling = [a["name"] for a in _alerts()["alerts"] if not (DASHBOARD / a["query"]).exists()]
     assert not dangling, f"alert references a query that does not exist: {dangling}"
 
 
