@@ -1,0 +1,90 @@
+# Alert thresholds for the data quality dashboard.
+#
+# Two rules govern this file. An alert fires to a human only when a human has
+# something to do about it, and every alert names an owner. Anything that pages
+# with no action attached gets muted within a month and stops working.
+#
+# Deploy with: databricks bundle deploy --target <env>
+
+defaults:
+  evaluation_interval_minutes: 15
+  # One dip is noise. Requiring consecutive breaches is what keeps a nightly
+  # batch boundary from paging someone at 03:00.
+  consecutive_breaches_to_fire: 2
+  renotify_after_hours: 4
+  auto_resolve: true
+
+channels:
+  slack:
+    target: "#data-platform-alerts"
+  slack_urgent:
+    target: "#data-platform-incidents"
+  email:
+    target: "data-platform-oncall@example.com"
+
+alerts:
+  - name: "quality_score_drop"
+    description: "Overall passing rate fell below the governed floor"
+    query: "queries/01_quality_kpis.sql"
+    metric: "quality_score"
+    condition: "< 98.0"
+    severity: "critical"
+    owner: "data-platform-oncall"
+    channels: ["email", "slack_urgent"]
+    runbook: "docs/runbooks/quality-score-drop.md"
+
+  - name: "freshness_breach"
+    description: "A gold table is past its freshness SLA"
+    query: "queries/02_freshness_monitor.sql"
+    metric: "minutes_stale"
+    condition: "> 30"
+    severity: "warning"
+    owner: "pipeline-owner"
+    channels: ["slack"]
+
+  - name: "accuracy_reconciliation_gap"
+    description: "Source and landed row counts diverged beyond tolerance"
+    query: "queries/04_accuracy_checks.sql"
+    metric: "variance_pct"
+    condition: "> 1.0"
+    severity: "critical"
+    owner: "data-platform-oncall"
+    channels: ["email", "slack_urgent"]
+
+  - name: "sla_error_budget_burn"
+    description: "Monthly SLA error budget is more than half spent"
+    query: "queries/05_pipeline_sla.sql"
+    metric: "error_budget_consumed_pct"
+    condition: "> 50"
+    severity: "warning"
+    owner: "pipeline-owner"
+    channels: ["slack"]
+    # Budget burn is a planning signal, not an incident. Daily is enough.
+    evaluation_interval_minutes: 1440
+
+  - name: "failure_unowned"
+    description: "A check has been failing for three days with no resolution"
+    query: "queries/06_failed_checks.sql"
+    metric: "hours_open"
+    condition: "> 72"
+    severity: "critical"
+    owner: "data-platform-lead"
+    channels: ["email"]
+    # Escalates to the lead, not the on-call. Three days open is a staffing
+    # problem, and paging the same on-call again will not fix it.
+    consecutive_breaches_to_fire: 1
+
+  - name: "volume_anomaly"
+    description: "Row count moved more than three standard deviations"
+    query: "queries/07_volume_anomalies.sql"
+    metric: "z_score"
+    condition: "> 3.0 OR < -3.0"
+    severity: "warning"
+    owner: "pipeline-owner"
+    channels: ["email"]
+
+muted:
+  # Suppress alerts during the nightly full reload, when staleness is expected.
+  - window: "0 2-4 * * *"
+    timezone: "America/Toronto"
+    alerts: ["freshness_breach", "volume_anomaly"]

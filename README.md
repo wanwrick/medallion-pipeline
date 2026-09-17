@@ -2,6 +2,8 @@
 
 > A real-time data observability dashboard built on Databricks AI/BI Dashboards and Metric Views. Monitors data freshness, completeness, accuracy, and pipeline SLAs across the entire lakehouse.
 
+[![tests](https://github.com/wanwrick/data-quality-dashboard/actions/workflows/tests.yml/badge.svg)](https://github.com/wanwrick/data-quality-dashboard/actions/workflows/tests.yml)
+
 ![Dashboard](docs/dashboard.png)
 
 ---
@@ -69,6 +71,9 @@ data-quality-dashboard/
 │   ├── dashboard_config.json        # AI/BI Dashboard layout
 │   ├── alerts.yaml                  # Alert threshold configs
 │   └── databricks.yml               # Asset Bundle for deployment
+├── tests/
+│   └── test_repo_contract.py        # SQL, YAML, and alert wiring validation
+├── .github/workflows/tests.yml      # CI: pytest on every push
 ├── docs/
 │   └── dashboard.png
 └── README.md
@@ -119,16 +124,47 @@ databricks bundle deploy --target dev
 
 ---
 
-## 🔧 Key Queries
+## 🔧 The Queries
 
-### Freshness Monitor
-Tracks how stale each table is relative to its SLA:
+| # | Query | What it answers |
+|---|-------|-----------------|
+| 01 | `quality_kpis` | The four header numbers, each with its own threshold |
+| 02 | `freshness_monitor` | Which tables are stale, and how much of the SLA is spent |
+| 03 | `completeness_trends` | Is quality drifting, or was yesterday a one-off |
+| 04 | `accuracy_checks` | Do source and landed row counts still reconcile |
+| 05 | `pipeline_sla` | Did we hold the promise, and when we missed, by how much |
+| 06 | `failed_checks` | Which failure to work first, and which one nobody owns |
+| 07 | `volume_anomalies` | Did a row count move more than three standard deviations |
+| 08 | `metric_views` | The governed definitions everything above reads from |
 
-### Completeness Score
-Measures null rates across critical columns with trend analysis.
+Three of these are worth calling out.
 
-### Volume Anomaly Detection
-Uses statistical methods (z-score) to detect unusual row count changes.
+**04 reconciles rather than counts.** Completeness tells you a column is
+populated. It does not tell you a batch went missing. Accuracy compares source
+to landed and treats anything past a 0.1% variance as a real loss.
+
+**05 refuses to report a mean.** One four-hour outage and forty one-minute slips
+average the same and mean nothing alike, so it reports the 95th percentile, the
+worst miss, and how much of the monthly error budget is already spent.
+
+**06 sorts by ownership, not severity.** A first failure is noise until it
+repeats. A failure still open after three days has stopped being a quality
+problem and become an ownership problem, so it sorts to the top and escalates
+to the lead rather than paging the same on-call again.
+
+---
+
+## 🧪 Tests
+
+```bash
+pip install pytest pyyaml
+pytest tests -q        # 31 tests
+```
+
+Dashboard repos fail quietly: nothing compiles the SQL or parses the YAML until
+someone deploys. These tests do it up front and check the pieces refer to each
+other, so an alert cannot point at a query that was never committed or route to
+a channel that was never declared.
 
 ---
 
