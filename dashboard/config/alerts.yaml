@@ -5,6 +5,8 @@
 # with no action attached gets muted within a month and stops working.
 #
 # Deploy with: databricks bundle deploy --target <env>
+#
+# Query paths are relative to the dashboard/ directory, which is the bundle root.
 
 defaults:
   evaluation_interval_minutes: 15

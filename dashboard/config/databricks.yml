@@ -1,12 +1,18 @@
 # Databricks Asset Bundle (DAB) configuration
 # Deploys the quality dashboard, its metric views, and its alerts.
-# Deploy with: databricks bundle deploy --target dev
+#
+# Run from the dashboard/ directory, which is this bundle's root:
+#   cd dashboard && databricks bundle deploy --target dev
+#
+# The pipeline has its own bundle in ../config/databricks.yml. They deploy
+# separately because the dashboard can be redeployed without touching a
+# running pipeline.
 
 bundle:
-  name: data-quality-dashboard
+  name: medallion-dashboard
 
 workspace:
-  root_path: /Users/${workspace.current_user.userName}/data-quality-dashboard
+  root_path: /Users/${workspace.current_user.userName}/medallion-dashboard
 
 variables:
   warehouse_id:
