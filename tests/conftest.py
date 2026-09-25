@@ -13,7 +13,6 @@ available rather than failing the run.
 from __future__ import annotations
 
 import ast
-import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -47,10 +46,6 @@ class TableDef:
     reads: list[str] = field(default_factory=list)
     source: str = ""
     is_cdc_target: bool = False
-
-    @property
-    def expectation_names(self) -> set[str]:
-        return {e.name for e in self.expectations}
 
 
 _EXPECT_ACTIONS = {
@@ -101,8 +96,8 @@ def _collect_reads(node: ast.AST) -> list[str]:
     return reads
 
 
-def parse_notebook(filename: str) -> list[TableDef]:
-    """Return every table a DLT notebook declares.
+def parse_notebook(filename: str) -> dict[str, TableDef]:
+    """Return every table a DLT notebook declares, keyed by name.
 
     Handles both forms in use here: the `@dlt.table` decorator on a function,
     and the `dlt.create_streaming_table` plus `dlt.apply_changes` pair used for
@@ -111,7 +106,6 @@ def parse_notebook(filename: str) -> list[TableDef]:
     path = NOTEBOOK_DIR / filename
     source = path.read_text(encoding="utf-8")
     tree = ast.parse(source)
-    lines = source.splitlines()
     tables: dict[str, TableDef] = {}
 
     for node in tree.body:
@@ -134,15 +128,12 @@ def parse_notebook(filename: str) -> list[TableDef]:
             if table_call is None:
                 continue
             name = _kwarg(table_call, "name") or node.name
-            body = textwrap.dedent(
-                "\n".join(lines[node.lineno - 1 : (node.end_lineno or node.lineno)])
-            )
             tables[name] = TableDef(
                 name=name,
                 properties=_kwarg(table_call, "table_properties") or {},
                 expectations=expectations,
                 reads=_collect_reads(node),
-                source=body,
+                source=ast.get_source_segment(source, node) or "",
             )
 
         # Form 2: create_streaming_table / apply_changes at module level.
@@ -163,21 +154,21 @@ def parse_notebook(filename: str) -> list[TableDef]:
                     if isinstance(sources, str):
                         tbl.reads.append(sources)
 
-    return list(tables.values())
+    return tables
 
 
 @pytest.fixture(scope="session")
-def bronze_tables() -> list[TableDef]:
+def bronze_tables() -> dict[str, TableDef]:
     return parse_notebook(BRONZE_NOTEBOOK)
 
 
 @pytest.fixture(scope="session")
-def silver_tables() -> list[TableDef]:
+def silver_tables() -> dict[str, TableDef]:
     return parse_notebook(SILVER_NOTEBOOK)
 
 
 @pytest.fixture(scope="session")
-def gold_tables() -> list[TableDef]:
+def gold_tables() -> dict[str, TableDef]:
     return parse_notebook(GOLD_NOTEBOOK)
 
 

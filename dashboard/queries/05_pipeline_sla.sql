@@ -12,7 +12,6 @@
 WITH runs AS (
   SELECT
     table_name,
-    DATE(checked_at) AS run_date,
     metric_value AS observed_minutes,
     threshold AS sla_minutes,
     metric_value <= threshold AS within_sla
@@ -20,34 +19,44 @@ WITH runs AS (
   WHERE check_type = 'freshness'
     AND threshold IS NOT NULL
     AND checked_at >= CURRENT_DATE() - INTERVAL 30 DAY
+),
+
+totals AS (
+  SELECT
+    table_name,
+    COUNT(*) AS runs_observed,
+    SUM(CASE WHEN within_sla THEN 1 ELSE 0 END) AS runs_within_sla,
+    MAX(sla_minutes) AS sla_minutes,
+    ROUND(AVG(observed_minutes), 1) AS avg_minutes,
+    ROUND(PERCENTILE(observed_minutes, 0.95), 1) AS p95_minutes,
+    ROUND(MAX(observed_minutes), 1) AS worst_minutes
+  FROM runs
+  GROUP BY table_name
+),
+
+scored AS (
+  SELECT
+    *,
+    runs_within_sla * 100.0 / NULLIF(runs_observed, 0) AS compliance
+  FROM totals
 )
 
 SELECT
   table_name,
-  COUNT(*) AS runs_observed,
-  SUM(CASE WHEN within_sla THEN 1 ELSE 0 END) AS runs_within_sla,
-  ROUND(
-    SUM(CASE WHEN within_sla THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0),
-    2
-  ) AS sla_compliance_pct,
-  MAX(sla_minutes) AS sla_minutes,
-  ROUND(AVG(observed_minutes), 1) AS avg_minutes,
-  ROUND(PERCENTILE(observed_minutes, 0.95), 1) AS p95_minutes,
-  ROUND(MAX(observed_minutes), 1) AS worst_minutes,
+  runs_observed,
+  runs_within_sla,
+  ROUND(compliance, 2) AS sla_compliance_pct,
+  sla_minutes,
+  avg_minutes,
+  p95_minutes,
+  worst_minutes,
   -- Error budget: how much of the allowed miss rate is already spent.
   -- 99% target over 30 days leaves room for roughly 7 hours of breach.
-  ROUND(
-    (COUNT(*) - SUM(CASE WHEN within_sla THEN 1 ELSE 0 END)) * 100.0
-      / NULLIF(COUNT(*) * 0.01, 0),
-    0
-  ) AS error_budget_consumed_pct,
+  ROUND((100 - compliance) * 100, 0) AS error_budget_consumed_pct,
   CASE
-    WHEN SUM(CASE WHEN within_sla THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) >= 99.0
-      THEN '🟢 Met'
-    WHEN SUM(CASE WHEN within_sla THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) >= 98.0
-      THEN '🟡 At risk'
+    WHEN compliance >= 99.0 THEN '🟢 Met'
+    WHEN compliance >= 98.0 THEN '🟡 At risk'
     ELSE '🔴 Breached'
   END AS sla_status
-FROM runs
-GROUP BY table_name
+FROM scored
 ORDER BY sla_compliance_pct ASC;

@@ -24,6 +24,11 @@ QUERIES = sorted((DASHBOARD / "queries").glob("*.sql"))
 EXPECTED_QUERY_COUNT = 8
 
 
+@pytest.fixture(scope="module")
+def alerts():
+    return yaml.safe_load((DASHBOARD / "config" / "alerts.yaml").read_text(encoding="utf-8"))
+
+
 def test_all_documented_queries_exist():
     """The README numbers these 01 to 08. A gap means one was never committed."""
     numbers = sorted(int(q.name.split("_")[0]) for q in QUERIES)
@@ -54,54 +59,44 @@ def test_query_is_fully_qualified(path):
     assert "medallion_demo." in sql, f"{path.name} never names its catalog"
 
 
-def test_configs_parse():
-    yaml.safe_load((DASHBOARD / "config" / "alerts.yaml").read_text(encoding="utf-8"))
+def test_bundle_and_layout_parse():
+    """alerts.yaml is parsed by its fixture; these two have no other reader."""
     yaml.safe_load((DASHBOARD / "config" / "databricks.yml").read_text(encoding="utf-8"))
     json.loads((DASHBOARD / "config" / "dashboard_config.json").read_text(encoding="utf-8"))
 
 
-def _alerts():
-    return yaml.safe_load((DASHBOARD / "config" / "alerts.yaml").read_text(encoding="utf-8"))
-
-
-def test_every_alert_points_at_a_real_query():
-    dangling = [a["name"] for a in _alerts()["alerts"] if not (DASHBOARD / a["query"]).exists()]
+def test_every_alert_points_at_a_real_query(alerts):
+    dangling = [a["name"] for a in alerts["alerts"] if not (DASHBOARD / a["query"]).exists()]
     assert not dangling, f"alert references a query that does not exist: {dangling}"
 
 
-def test_every_alert_names_an_owner_and_a_channel():
+def test_every_alert_names_an_owner_and_a_channel(alerts):
     """An alert with no owner is a notification, and notifications get muted."""
-    unowned = [
-        a["name"] for a in _alerts()["alerts"] if not a.get("owner") or not a.get("channels")
-    ]
+    unowned = [a["name"] for a in alerts["alerts"] if not a.get("owner") or not a.get("channels")]
     assert not unowned, f"alert missing owner or channel: {unowned}"
 
 
-def test_every_alert_channel_is_declared():
-    config = _alerts()
-    declared = set(config["channels"])
+def test_every_alert_channel_is_declared(alerts):
+    declared = set(alerts["channels"])
     unknown = {
-        a["name"]: [c for c in a["channels"] if c not in declared]
-        for a in config["alerts"]
-        if any(c not in declared for c in a["channels"])
+        a["name"]: bad
+        for a in alerts["alerts"]
+        if (bad := [c for c in a["channels"] if c not in declared])
     }
     assert not unknown, f"alert routes to an undeclared channel: {unknown}"
 
 
-def test_critical_alerts_do_not_route_to_slack_only():
+def test_critical_alerts_do_not_route_to_slack_only(alerts):
     """Critical means someone is woken up. A channel message is not that."""
     weak = [
         a["name"]
-        for a in _alerts()["alerts"]
+        for a in alerts["alerts"]
         if a["severity"] == "critical" and set(a["channels"]) == {"slack"}
     ]
     assert not weak, f"critical alert with no durable channel: {weak}"
 
 
-def test_muted_windows_only_reference_real_alerts():
-    config = _alerts()
-    names = {a["name"] for a in config["alerts"]}
-    bad = [
-        n for window in config.get("muted", []) for n in window["alerts"] if n not in names
-    ]
+def test_muted_windows_only_reference_real_alerts(alerts):
+    names = {a["name"] for a in alerts["alerts"]}
+    bad = [n for window in alerts.get("muted", []) for n in window["alerts"] if n not in names]
     assert not bad, f"mute window names an alert that does not exist: {bad}"

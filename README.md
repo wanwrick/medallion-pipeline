@@ -120,7 +120,7 @@ databricks pipelines start-update --pipeline-id <your-pipeline-id>
 
 ```bash
 pip install -r requirements.txt
-pytest tests -q        # 65 tests, ~20s
+pytest tests -q        # 64 tests, ~20s
 ```
 
 DLT notebooks cannot be imported outside a Databricks runtime, so the suite
