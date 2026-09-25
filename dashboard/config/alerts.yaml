@@ -27,7 +27,7 @@ channels:
 alerts:
   - name: "quality_score_drop"
     description: "Overall passing rate fell below the governed floor"
-    query: "queries/01_quality_kpis.sql"
+    query: "queries/09_quality_score_alert.sql"
     metric: "quality_score"
     condition: "< 98.0"
     severity: "critical"

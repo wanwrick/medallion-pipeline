@@ -25,6 +25,7 @@ CONFIG_DIR = REPO_ROOT / "config"
 BRONZE_NOTEBOOK = "01_bronze_ingestion.py"
 SILVER_NOTEBOOK = "02_silver_transformation.py"
 GOLD_NOTEBOOK = "03_gold_aggregation.py"
+QUALITY_NOTEBOOK = "04_data_quality_checks.py"
 
 
 @dataclass
@@ -170,6 +171,39 @@ def silver_tables() -> dict[str, TableDef]:
 @pytest.fixture(scope="session")
 def gold_tables() -> dict[str, TableDef]:
     return parse_notebook(GOLD_NOTEBOOK)
+
+
+def _quality_source() -> str:
+    return (NOTEBOOK_DIR / QUALITY_NOTEBOOK).read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="session")
+def emitted_check_types() -> set[str]:
+    """Every check_type literal the quality notebook writes to data_quality_metrics."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(_quality_source())):
+        if not isinstance(node, ast.Dict):
+            continue
+        for key, value in zip(node.keys, node.values):
+            if (
+                isinstance(key, ast.Constant)
+                and key.value == "check_type"
+                and isinstance(value, ast.Constant)
+                and isinstance(value.value, str)
+            ):
+                found.add(value.value)
+    return found
+
+
+@pytest.fixture(scope="session")
+def quality_check_functions() -> dict[str, str]:
+    """Source of each check_* function in the quality notebook, by name."""
+    source = _quality_source()
+    return {
+        node.name: ast.get_source_segment(source, node) or ""
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("check_")
+    }
 
 
 @pytest.fixture(scope="session")

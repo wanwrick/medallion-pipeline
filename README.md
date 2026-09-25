@@ -120,7 +120,7 @@ databricks pipelines start-update --pipeline-id <your-pipeline-id>
 
 ```bash
 pip install -r requirements.txt
-pytest tests -q        # 64 tests, ~20s
+pytest tests -q        # 81 tests, ~20s
 ```
 
 DLT notebooks cannot be imported outside a Databricks runtime, so the suite
@@ -217,6 +217,7 @@ changes what the dashboard can display, and a single test run catches the drift.
 | 06 | `failed_checks` | Which failure to work first, and which one nobody owns |
 | 07 | `volume_anomalies` | Did a row count move more than three standard deviations |
 | 08 | `metric_views` | The governed definitions everything above reads from |
+| 09 | `quality_score_alert` | One row, one number, for the critical quality-score alert |
 
 Three are worth calling out.
 

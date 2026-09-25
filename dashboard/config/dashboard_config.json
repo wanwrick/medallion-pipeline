@@ -109,6 +109,75 @@
             "queries": [{ "name": "anomalies", "query": { "datasetName": "queries/07_volume_anomalies" } }]
           },
           "position": { "x": 0, "y": 6, "width": 12, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "accuracy_reconciliation",
+            "title": "Accuracy: Source vs. Landed",
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "table_name", "displayName": "Table" },
+                  { "fieldName": "source_rows", "displayName": "Source Rows" },
+                  { "fieldName": "landed_rows", "displayName": "Landed Rows" },
+                  { "fieldName": "variance_pct", "displayName": "Variance %" },
+                  { "fieldName": "orphan_rate_pct", "displayName": "Orphans %" },
+                  { "fieldName": "accuracy_status", "displayName": "Status" },
+                  { "fieldName": "finding", "displayName": "Finding" }
+                ]
+              }
+            },
+            "queries": [{ "name": "accuracy", "query": { "datasetName": "queries/04_accuracy_checks" } }]
+          },
+          "position": { "x": 0, "y": 10, "width": 6, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "sla_compliance",
+            "title": "Pipeline SLA: 30 Days",
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "table_name", "displayName": "Table" },
+                  { "fieldName": "sla_compliance_pct", "displayName": "Compliance %" },
+                  { "fieldName": "p95_minutes", "displayName": "p95 Minutes" },
+                  { "fieldName": "worst_minutes", "displayName": "Worst Minutes" },
+                  { "fieldName": "error_budget_consumed_pct", "displayName": "Error Budget Used %" },
+                  { "fieldName": "sla_status", "displayName": "Status" }
+                ]
+              }
+            },
+            "queries": [{ "name": "sla", "query": { "datasetName": "queries/05_pipeline_sla" } }]
+          },
+          "position": { "x": 6, "y": 10, "width": 6, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "failed_checks",
+            "title": "Failed Checks: Work the Top Row First",
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "table_name", "displayName": "Table" },
+                  { "fieldName": "check_type", "displayName": "Check" },
+                  { "fieldName": "latest_value", "displayName": "Latest" },
+                  { "fieldName": "threshold", "displayName": "Threshold" },
+                  { "fieldName": "consecutive_failures", "displayName": "Failures" },
+                  { "fieldName": "hours_open", "displayName": "Hours Open" },
+                  { "fieldName": "triage", "displayName": "Triage" },
+                  { "fieldName": "latest_detail", "displayName": "Detail" }
+                ]
+              }
+            },
+            "queries": [{ "name": "failures", "query": { "datasetName": "queries/06_failed_checks" } }]
+          },
+          "position": { "x": 0, "y": 14, "width": 12, "height": 5 }
         }
       ]
     }
